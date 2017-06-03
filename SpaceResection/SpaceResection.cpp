@@ -22,7 +22,7 @@ int main(size_t argc, char** argv)
     double x0, y0, f, pixelsize, m;
     ifstream fin_iee(argv[1]);
     fin_iee >> x0 >> y0 >> f >> pixelsize >> m;
-    ISpaceResection* spaceResection = ISpaceResection::create(x0, y0, f / pixelsize, m, true, 2); // x0=y0=0, f=153.24mm
+    ISpaceResection* spaceResection = ISpaceResection::create(x0 / pixelsize, y0 / pixelsize, f, m, true, 2); // x0=y0=0, f=153.24mm
     fin_iee.close();
     /***********
     * Ìí¼Ó¿ØÖÆµã
@@ -45,7 +45,7 @@ int main(size_t argc, char** argv)
         size_t gcp_id;
         double gcp_coord[5];
         fin_gcp >> gcp_id >> gcp_coord[0] >> gcp_coord[1] >> gcp_coord[2] >> gcp_coord[3] >> gcp_coord[4];
-        spaceResection->AddGcp(gcp_coord[0], gcp_coord[1], gcp_coord[2], gcp_coord[3], gcp_coord[4]);
+        spaceResection->AddGcp(gcp_coord[0] / pixelsize, gcp_coord[1] / pixelsize, gcp_coord[2], gcp_coord[3], gcp_coord[4]);
     }
     fin_gcp.close();
     /*************
