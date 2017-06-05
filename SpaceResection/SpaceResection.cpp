@@ -3,6 +3,7 @@
 
 #include "stdafx.h"
 #include "SpaceResectionDLL.h"
+#include <vector>
 #include <iostream>
 #include <iomanip>
 #include <fstream>
@@ -22,6 +23,7 @@ int main(size_t argc, char** argv)
     double x0, y0, f, pixelsize, m;
     ifstream fin_iee(argv[1]);
     fin_iee >> x0 >> y0 >> f >> pixelsize >> m;
+    //ISpaceResection* spaceResection = ISpaceResection::create(x0 / pixelsize, y0 / pixelsize, f, m, false, 0); // x0=y0=0, f=153.24mm
     ISpaceResection* spaceResection = ISpaceResection::create(x0 / pixelsize, y0 / pixelsize, f, m, true, 2); // x0=y0=0, f=153.24mm
     fin_iee.close();
     /***********
@@ -40,12 +42,14 @@ int main(size_t argc, char** argv)
     }
     int nGcpNum = 0; // 控制点数量
     fin_gcp >> nGcpNum;
+    vector<size_t> vPointId;
     for (size_t i = 0; i < nGcpNum && !fin_gcp.eof(); i++)
     {
         size_t gcp_id;
         double gcp_coord[5];
         fin_gcp >> gcp_id >> gcp_coord[0] >> gcp_coord[1] >> gcp_coord[2] >> gcp_coord[3] >> gcp_coord[4];
-        spaceResection->AddGcp(gcp_coord[0] / pixelsize, gcp_coord[1] / pixelsize, gcp_coord[2], gcp_coord[3], gcp_coord[4]);
+        vPointId.push_back(gcp_id);
+        spaceResection->AddGcp(gcp_coord[0] * pixelsize, gcp_coord[1] * pixelsize, gcp_coord[2], gcp_coord[3], gcp_coord[4]);
     }
     fin_gcp.close();
     /*************
@@ -111,22 +115,53 @@ int main(size_t argc, char** argv)
     * 输出计算结果
     **************/
     cout << "单像空间后方交会结果" << endl << endl;
-    cout << "像点残差中误差：" << endl;
-
+    // 像点中误差
+    //printf_s("精度：%.8lf\n", spaceResection->AssessPrecision());
+    cout << right << fixed << setw(12) << setprecision(8) 
+        << spaceResection->AssessPrecision() / pixelsize << " 像素" << endl;
+    cout << endl;
+    // 内方位元素
+    InneriorElements innerior = spaceResection->GetInneriorElements();
+    cout << "内方位元素" << endl;
+    cout << setw(2) << right << "f" << setw(10) << setprecision(3) << innerior.f << " mm" << endl;
+    cout << setw(2) << right << "x0" << setw(10) << setprecision(3) << innerior.x0 / pixelsize << " 像素" << endl;
+    cout << setw(2) << right << "y0" << setw(10) << setprecision(3) << innerior.y0 / pixelsize << " 像素" << endl;
+    cout << endl;
+    // 外方位元素
     printf_s("单像空间后方交会计算结果：\n");
     printf_s("Xs = %8.2lf\n", exterior.Xs);
     printf_s("Ys = %8.2lf\n", exterior.Ys);
     printf_s("Zs = %8.2lf\n", exterior.Zs);
     printf_s("R=\n");
-    printf_s("\t%9.5lf\t%9.5lf\t%9.5lf\n", R[0], R[1], R[2]);
-    printf_s("\t%9.5lf\t%9.5lf\t%9.5lf\n", R[3], R[4], R[5]);
-    printf_s("\t%9.5lf\t%9.5lf\t%9.5lf\n", R[6], R[7], R[8]);
-    printf_s("精度：%e\n", spaceResection->AssessPrecision());
-    system("Pause");
+    printf_s("%9.5lf %9.5lf %9.5lf\n", R[0], R[1], R[2]);
+    printf_s("%9.5lf %9.5lf %9.5lf\n", R[3], R[4], R[5]);
+    printf_s("%9.5lf %9.5lf %9.5lf\n", R[6], R[7], R[8]);
+    // 基本系数
+    double calibParams[2] = { 0.0 };
+    spaceResection->GetCalibParams(calibParams);
+    cout << endl << "畸变系数" << endl;
+    for (size_t i = 0; i < 2; i++)
+    {
+        cout << "k" << i << right << scientific << setw(12) << setprecision(3) << calibParams[i] << endl;
+    }
+    cout << resetiosflags(ios::scientific) << endl;
+    // 像点残差中误差
+    double* residual = new double[vPointId.size()];
+    spaceResection->CalcImagePointResidual(residual);
+    cout << "像点残差中误差：" << endl << setiosflags(ios::right) << setiosflags(ios::fixed);
+    for (size_t i = 0; i < vPointId.size(); i++)
+    {
+        cout << vPointId.at(i) << ":" 
+            << setw(10) << setprecision(6) << residual[i] 
+            << '\t' << "约" 
+            << setw(6) << setprecision(3) << residual[i] / pixelsize << " 像元" << endl;
+    }
+    //system("Pause");
     /*********
     * 释放对象
     **********/
-    delete spaceResection;
+    //delete spaceResection;
+    ISpaceResection::release(spaceResection);
     return 0;
 }
 

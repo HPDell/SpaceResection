@@ -136,6 +136,28 @@ public:
     * 输出旋转矩阵
     */
     virtual double* GetRotateMatrix() { return (double*)R.data; }
+    /**
+    * 输出内方位元素
+    */
+    virtual InneriorElements GetInneriorElements()
+    {
+        InneriorElements inneriorElements = { f, x0, y0 };
+        return inneriorElements;
+    }
+    /**
+    * 输出畸变系数
+    **/
+    virtual void GetCalibParams(double* calibParams)
+    {
+        for (size_t i = 0; i < nCalibParams; i++)
+        {
+            calibParams[i] = k[i];
+        }
+    }
+    /**
+    * 输出像点残差
+    **/
+    void CalcImagePointResidual(double* pResidual);
 private: 
     /**
     * 检查影像控制点是否在同一条直线上

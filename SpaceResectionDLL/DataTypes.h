@@ -23,6 +23,13 @@ struct SPACERESECTIONDLL_API ExteriorElements
     double kappa; // kappa: 像空间坐标系沿 Z 轴的旋转角
 };
 
+struct InneriorElements
+{
+    double f;
+    double x0;
+    double y0;
+};
+
 
 /**
 * 影像控制点结构。

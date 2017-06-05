@@ -4,6 +4,8 @@
 #include "stdafx.h"
 #include "SpaceResection.h"
 
+#include <iostream>
+using namespace std;
 
 // 这是导出变量的一个示例
 //SPACERESECTIONDLL_API int nSpaceResectionDLL=0;
@@ -49,14 +51,9 @@ CSpaceResection::CSpaceResection(double lf_x0, double lf_y0, double lf_f, double
 
 CSpaceResection::~CSpaceResection()
 {
-    //if (m_vImageGcp.size() > 0) m_vImageGcp.clear();
-    //if (m_vGroundGcp.size() > 0) m_vGroundGcp.clear();
-    R.release();
-    ATA.release();
-    ATl.release();
-    dx.release();
-    if (k) delete k;
-    k = nullptr;
+    cout << "调用了析构函数" << endl;
+    //if (k) delete[] k;
+    //k = nullptr;
 }
 
 
@@ -149,6 +146,25 @@ BOOL CSpaceResection::CheckGcps()
 }
 
 
+void CSpaceResection::CalcImagePointResidual(double * pResidual)
+{
+    double lTl = 0;
+
+    // 分别计算所有的常数项矩阵
+    Mat li(2, 1, CV_64FC1, 0.0);
+    for (int i = 0; i < m_nGcpNum; i++)
+    {
+        BOOL CalcLResult = Calc_l_Matrix(i, li);
+        if (CalcLResult == RESECTION_SUCCESS)
+        {
+            double l1 = li.at<double>(0, 0), l2 = li.at<double>(1, 0);
+            lTl = (l1 * l1 + l2 * l2);
+            *(pResidual + i) = sqrt(lTl);
+        }
+        else pResidual = nullptr;
+    }
+}
+
 /**
  * 检查影像控制点是否在同一条直线上
  * [RESECTION_SUCCESS] 成功
@@ -156,17 +172,17 @@ BOOL CSpaceResection::CheckGcps()
  */
 BOOL CSpaceResection::InLineCheck()
 {
-    ImageGcp* vImageGcp = m_vImageGcp.data();
+    const ImageGcp* vImageGcp = m_vImageGcp.data();
     for (int i = 0; i < m_nGcpNum - 2; i++)
     {
-        ImageGcp* imageGcp1 = vImageGcp + i;
+        const ImageGcp* imageGcp1 = vImageGcp + i;
         for (int j = i + 1; j < m_nGcpNum - 1; j++)
         {
-            ImageGcp* imageGcp2 = vImageGcp + j;
+            const ImageGcp* imageGcp2 = vImageGcp + j;
             double k1 = (imageGcp2->y - imageGcp1->y) / (imageGcp2->x - imageGcp1->x);
             for (int n = j + 1; n < m_nGcpNum; n++)
             {
-                ImageGcp* imageGcp3 = vImageGcp + n;
+                const ImageGcp* imageGcp3 = vImageGcp + n;
                 double k2 = (imageGcp3->y - imageGcp2->y) / (imageGcp3->x - imageGcp2->x);
                 if (k2 == k1)
                 {
@@ -252,7 +268,7 @@ double CalcPtolemy(GroundGcp* groundGcp, int* arrangement)
  */
 BOOL CSpaceResection::InCylindricalSurface()
 {
-    GroundGcp* vGroundGcp = m_vGroundGcp.data();
+    const GroundGcp* vGroundGcp = m_vGroundGcp.data();
     // 选取四个点四个点进行组合
     for (int i = 0; i < m_nGcpNum - 3; i++)
     {
@@ -295,8 +311,8 @@ BOOL CSpaceResection::CalcMeasuringScale()
     if (m_nGcpNum < 4) return RESECTION_GCP_NOT_ENOUGH;
     
     // 提取一对影像控制点和地面控制点
-    ImageGcp imageGcp1 = m_vImageGcp.at(0), imageGcp2 = m_vImageGcp.at(1);
-    GroundGcp groundGcp1 = m_vGroundGcp.at(0), groundGcp2 = m_vGroundGcp.at(1);
+    ImageGcp& imageGcp1 = m_vImageGcp.at(0), &imageGcp2 = m_vImageGcp.at(1);
+    GroundGcp& groundGcp1 = m_vGroundGcp.at(0), &groundGcp2 = m_vGroundGcp.at(1);
 
     double imageLength = sqrt((imageGcp1.x - imageGcp2.x) * (imageGcp1.x - imageGcp2.x) + (imageGcp1.y - imageGcp2.y)*(imageGcp1.y - imageGcp2.y));
     double groundLength = sqrt((groundGcp1.X - groundGcp2.X) * (groundGcp1.X - groundGcp2.X) + (groundGcp1.Y - groundGcp2.Y)*(groundGcp1.Y - groundGcp2.Y));
@@ -357,8 +373,8 @@ BOOL CSpaceResection::Calc_A_Matrix(int i, Mat& A)
     // 获取参数个数
     const size_t params = A.cols;
     // 提取控制点，并用 const 保护。
-    const ImageGcp iImageGcp = m_vImageGcp.at(i);
-    const GroundGcp iGroundGcp = m_vGroundGcp.at(i);
+    const ImageGcp& iImageGcp = m_vImageGcp.at(i);
+    const GroundGcp& iGroundGcp = m_vGroundGcp.at(i);
     // 提取地面控制点坐标
     const double x = iImageGcp.x;
     const double y = iImageGcp.y;
@@ -398,12 +414,12 @@ BOOL CSpaceResection::Calc_A_Matrix(int i, Mat& A)
     {
         case 11:
             // 计算二阶畸变参数的偏导数
-            A.at<double>(0, 10) = (Dx)*r2;
-            A.at<double>(1, 10) = (Dy)*r2;
+            A.at<double>(0, 10) = (Dx)*r2*r2;
+            A.at<double>(1, 10) = (Dy)*r2*r2;
         case 10:
             // 计算一阶畸变参数偏导数
-            A.at<double>(0, 9) = (Dx)*sqrt(r2);
-            A.at<double>(1, 9) = (Dy)*sqrt(r2);
+            A.at<double>(0, 9) = (Dx)*(r2);
+            A.at<double>(1, 9) = (Dy)*(r2);
         case 9:
             // 计算3个内方位元素的偏导数
             A.at<double>(0, 6) = (Dx / f);
@@ -432,8 +448,8 @@ BOOL CSpaceResection::Calc_A_Matrix(int i, Mat& A)
 BOOL CSpaceResection::Calc_l_Matrix(int i, Mat & l)
 {
     // 提取控制点，并用 const 保护。
-    const ImageGcp iImageGcp = m_vImageGcp.at(i);
-    const GroundGcp iGroundGcp = m_vGroundGcp.at(i);
+    const ImageGcp& iImageGcp = m_vImageGcp.at(i);
+    const GroundGcp& iGroundGcp = m_vGroundGcp.at(i);
     // 提取控制点坐标
     const double x = iImageGcp.x; const double y = iImageGcp.y;
     const double X = iGroundGcp.X; const double Y = iGroundGcp.Y; const double Z = iGroundGcp.Z;
@@ -447,23 +463,25 @@ BOOL CSpaceResection::Calc_l_Matrix(int i, Mat & l)
     double Y_bar = a2*(X - Xs) + b2 * (Y - Ys) + c2* (Z - Zs);
     double Z_bar = a3*(X - Xs) + b3 * (Y - Ys) + c3* (Z - Zs);
 
-    // 计算 像点坐标 初始值
-    double x_origin = -f * X_bar / Z_bar;
-    double y_origin = -f * Y_bar / Z_bar;
-    double r2 = x_origin*x_origin + y_origin*y_origin;
+    // 计算畸变差
     double dx = 0, dy = 0;
+    double delta_x = x - x0, delta_y = y - y0;
+    double r2 = delta_x*delta_x + delta_y*delta_y;
     switch (nCalibParams)
     {
         case 2:
-            dx += x_origin*r2*r2*k[1];
-            dy += y_origin*r2*r2*k[1];
+            dx += delta_x*r2*r2*k[1];
+            dy += delta_y*r2*r2*k[1];
         case 1:
-            dx += x_origin*r2*k[0];
-            dy += y_origin*r2*k[0];
+            dx += delta_x*r2*k[0];
+            dy += delta_y*r2*k[0];
             break;
         default:
             break;
     }
+    // 计算 像点坐标 初始值
+    double x_origin = -f * X_bar / Z_bar;
+    double y_origin = -f * Y_bar / Z_bar;
     // 计算 l 矩阵
     l.at<double>(0, 0) = x - (x_origin + x0 + dx);
     l.at<double>(1, 0) = y - (y_origin + y0 + dy);
@@ -619,7 +637,7 @@ BOOL CSpaceResection::CalcExteriorElements()
         solve(ATA, ATl, deltaX, CV_LU);
         //deltaX = ATA.inv() * ATl;
         isOk = isReachDemand(deltaX);
-        // 修正外方位元素
+        // 
         BOOL correctExteriorResults = CorrectExteriorElements(deltaX);
         if (correctExteriorResults != RESECTION_SUCCESS) return correctExteriorResults;
     }
@@ -674,7 +692,8 @@ double CSpaceResection::AssessPrecision()
     }
 
     // 计算评定的精度
-    double result = (lTl - ATl.at<double>(0, 0) * dx.at<double>(0, 0));
+    //double result = (lTl - ATl.at<double>(0, 0) * dx.at<double>(0, 0));
+    double result = sqrt(lTl / ((m_nGcpNum - 3) * 2));
     return result;
 }
 
@@ -708,6 +727,9 @@ void CSpaceResection::InitExteriorLineElements()
     Xs = lf_SumXs / m_nGcpNum;
     Ys = lf_SumYs / m_nGcpNum;
     Zs = lf_SumZs / m_nGcpNum + f * m;
+    //Xs = 0;
+    //Ys = 0;
+    //Zs = 0;
     //Zs = f * m;
 }
 

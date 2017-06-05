@@ -14,7 +14,12 @@ ISpaceResection * ISpaceResection::create(double lf_x0, double lf_y0, double lf_
     return (ISpaceResection*)(new CSpaceResection(lf_x0, lf_y0, lf_f, lf_m, inneriorApprox, calibParamNums));
 }
 
-void ISpaceResection::operator delete(void * instance)
+//void ISpaceResection::operator delete(void * instance)
+//{
+//    delete ((CSpaceResection*)instance);
+//}
+
+void ISpaceResection::release(ISpaceResection * instance)
 {
     delete ((CSpaceResection*)instance);
 }

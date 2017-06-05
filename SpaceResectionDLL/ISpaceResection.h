@@ -19,7 +19,8 @@ public:
     /*
     * 析构函数
     */
-    void operator delete(void* instance);
+    //void operator delete(void* instance);
+    static void release(ISpaceResection* instance);
 // ****
 // 方法
 // ****
@@ -89,5 +90,14 @@ public:
     * 输出旋转矩阵
     */
     virtual double* GetRotateMatrix() = 0;
+    /**
+    * 输出内方位元素
+    */
+    virtual InneriorElements GetInneriorElements() = 0;
+    /**
+    * 输出畸变参数
+    */
+    virtual void GetCalibParams(double* calibParams) = 0;
+    virtual void CalcImagePointResidual(double* pResidual) = 0;
 };
 
